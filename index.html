@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AETOS - Gemini Intelligence Feed</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 2rem; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #1a253c; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 2rem; }
+        th, td { padding: 16px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: top; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        .doc-title { font-weight: bold; margin-bottom: 8px; }
+        .strategic-summary { font-style: italic; color: #0d6efd; margin-top: 8px; border-left: 3px solid #0d6efd; padding-left: 10px; }
+        .tech-list, .relations-list { list-style: none; padding: 0; margin: 0; }
+        .tech-list li { display: inline-block; background-color: #e9ecef; padding: 3px 8px; border-radius: 4px; margin: 2px; font-size: 0.9em; }
+        .relations-list li { margin-top: 5px; font-size: 0.95em; }
+        .loading { text-align: center; padding: 2rem; font-size: 1.2em; color: #777; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🦅 AETOS Gemini Intelligence Feed</h1>
+        <div id="loading-message" class="loading">Loading intelligence data...</div>
+        <table id="documents-table" style="display:none;">
+            <thead>
+                <tr>
+                    <th style="width: 50%;">Strategic Analysis</th>
+                    <th>Key Technologies & Relationships</th>
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const apiURL = 'http://127.0.0.1:5000/api/documents';
+            const tableBody = document.getElementById('table-body');
+            const loadingMessage = document.getElementById('loading-message');
+            const table = document.getElementById('documents-table');
+
+            fetch(apiURL)
+                .then(response => response.json())
+                .then(data => {
+                    loadingMessage.style.display = 'none';
+                    table.style.display = 'table';
+                    
+                    if (data.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="2" style="text-align:center;">No documents found. Run main.py to process data.</td></tr>';
+                        return;
+                    }
+
+                    let rowsHTML = '';
+                    data.forEach(doc => {
+                        const technologiesHTML = doc.technologies ? doc.technologies.map(t => `<li>${t}</li>`).join('') : '<li>N/A</li>';
+                        const relationshipsHTML = doc.key_relationships ? doc.key_relationships.map(r => `<li><strong>${r.subject}</strong> ${r.relationship} <strong>${r.object}</strong></li>`).join('') : '<li>N/A</li>';
+
+                        rowsHTML += `
+                            <tr>
+                                <td>
+                                    <div class="doc-title"><a href="${doc.id}" target="_blank">${doc.title}</a></div>
+                                    <p class="strategic-summary">${doc.strategic_summary || 'Not available.'}</p>
+                                </td>
+                                <td>
+                                    <strong>Technologies:</strong>
+                                    <ul class="tech-list">${technologiesHTML}</ul>
+                                    <hr style="margin: 12px 0; border: 0; border-top: 1px solid #eee;">
+                                    <strong>Key Relationships:</strong>
+                                    <ul class="relations-list">${relationshipsHTML}</ul>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    tableBody.innerHTML = rowsHTML;
+                })
+                .catch(error => {
+                    loadingMessage.textContent = 'Failed to load documents. Is the Python API server running?';
+                    console.error('Error fetching document data:', error);
+                });
+        });
+    </script>
+</body>
+</html>
