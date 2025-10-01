@@ -8,3 +8,5 @@ transformers[torch]
 sentence-transformers
 keybert
 google-generativeai
+celery
+redis

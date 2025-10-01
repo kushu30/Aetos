@@ -3,61 +3,52 @@ import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus
+import os
 
 def fetch_patent_data(topic: str, max_results: int = 10) -> pd.DataFrame:
+    scraper_api_key = os.getenv("SCRAPER_API_KEY")
+    if not scraper_api_key:
+        print("Warning: SCRAPER_API_KEY not found. Patent search will be skipped.")
+        return pd.DataFrame()
+
+    # Target the main search results page, which is more stable
     formatted_topic = quote_plus(topic)
-    url = f"https://patents.google.com/xhr/query?url=q%3D{formatted_topic}&num={max_results}"
+    target_url = f"https://patents.google.com/?q=({formatted_topic})&num={max_results}"
     
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-
+    scraper_url = f'http://api.scraperapi.com?api_key={scraper_api_key}&url={target_url}'
+    
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(scraper_url)
         response.raise_for_status()
-        data = response.json()
     except requests.RequestException as e:
-        print(f"Error fetching patent data: {e}")
+        print(f"Error fetching patent data via ScraperAPI: {e}")
         return pd.DataFrame()
 
+    soup = BeautifulSoup(response.text, 'lxml')
+    results = soup.select('article.search-result')
+    
     patents = []
-    results = data.get('results', {}).get('cluster', [])
-    if not results:
-        return pd.DataFrame()
-
-    for cluster in results[0].get('result', []):
-        patent_info = cluster.get('patent', {})
-        patent_id = patent_info.get('publication_number')
+    for item in results:
+        title_tag = item.select_one('h4[itemprop="title"]')
+        snippet_tag = item.select_one('div.snippet')
+        link_tag = item.select_one('a[href^="/patent/"]')
+        date_tag = item.select_one('time[itemprop="filingDate"]')
         
-        # Extracting snippets can be complex, we'll simplify
-        title = patent_info.get('title', 'No title available')
-        summary = patent_info.get('snippet', 'No summary available')
-        
-        # Clean up the text which may contain HTML tags
-        title = BeautifulSoup(title, 'lxml').get_text()
-        summary = BeautifulSoup(summary, 'lxml').get_text()
+        if not all([title_tag, snippet_tag, link_tag]):
+            continue
 
-        patent_data = {
+        title = title_tag.get_text(strip=True)
+        summary = snippet_tag.get_text(strip=True)
+        patent_id = link_tag['href'].split('/')[2]
+        filing_date = date_tag.get_text(strip=True) if date_tag else 'N/A'
+
+        patents.append({
             'id': f"https://patents.google.com/patent/{patent_id}",
             'title': title,
             'summary': summary,
-            'published': patent_info.get('filing_date_str', 'N/A'),
-            'authors': [inv.get('name', 'N/A') for inv in patent_info.get('inventor_harmonized', [])],
-            'source': 'google_patents' # Add a field to distinguish data source
-        }
-        patents.append(patent_data)
+            'published': filing_date,
+            'authors': [], 
+            'source': 'google_patents'
+        })
 
     return pd.DataFrame(patents)
-
-if __name__ == "__main__":
-    topic_of_interest = "graphene sensor"
-    print(f"Fetching latest patents on: '{topic_of_interest}'...")
-    
-    df = fetch_patent_data(topic=topic_of_interest)
-    
-    if not df.empty:
-        print(f"Successfully fetched {len(df)} patents.")
-        print("Sample data:")
-        print(df.head())
-    else:
-        print("No patents found or error occurred.")

@@ -8,48 +8,74 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 2rem; }
         .container { max-width: 1200px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         h1 { color: #1a253c; text-align: center; }
+        .search-container { text-align: center; margin: 2rem 0; }
+        .search-container input { width: 50%; padding: 12px; font-size: 16px; border: 1px solid #ddd; border-radius: 6px; }
+        .search-container button { padding: 12px 20px; font-size: 16px; border: none; background-color: #0d6efd; color: white; border-radius: 6px; cursor: pointer; }
         table { width: 100%; border-collapse: collapse; margin-top: 2rem; }
         th, td { padding: 16px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: top; }
         th { background-color: #f8f9fa; font-weight: 600; }
         .doc-title { font-weight: bold; margin-bottom: 8px; }
-        .strategic-summary { font-style: italic; color: #0d6efd; margin-top: 8px; border-left: 3px solid #0d6efd; padding-left: 10px; }
-        .tech-list, .relations-list { list-style: none; padding: 0; margin: 0; }
+        .strategic-summary { font-style: italic; color: #555; margin-top: 8px; border-left: 3px solid #6c757d; padding-left: 10px; }
+        .trl-badge { display: inline-block; padding: 4px 10px; font-size: 12px; font-weight: bold; color: white; border-radius: 12px; margin-right: 10px; }
+        .trl-justification { font-size: 0.9em; color: #6c757d; }
         .tech-list li { display: inline-block; background-color: #e9ecef; padding: 3px 8px; border-radius: 4px; margin: 2px; font-size: 0.9em; }
         .relations-list li { margin-top: 5px; font-size: 0.95em; }
         .loading { text-align: center; padding: 2rem; font-size: 1.2em; color: #777; }
     </style>
 </head>
 <body>
-
     <div class="container">
         <h1>🦅 AETOS Gemini Intelligence Feed</h1>
-        <div id="loading-message" class="loading">Loading intelligence data...</div>
-        <table id="documents-table" style="display:none;">
-            <thead>
-                <tr>
-                    <th style="width: 50%;">Strategic Analysis</th>
-                    <th>Key Technologies & Relationships</th>
-                </tr>
-            </thead>
-            <tbody id="table-body"></tbody>
-        </table>
+        <div class="search-container">
+            <form id="search-form">
+                <input type="text" id="search-input" placeholder="Enter a technology topic (e.g., hypersonic missile defense)">
+                <button type="submit">Analyze</button>
+            </form>
+        </div>
+        <div id="results-container">
+            <div id="loading-message" class="loading" style="display:none;">Loading intelligence data...</div>
+            <table id="documents-table" style="display:none;">
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">Strategic Analysis</th>
+                        <th>Key Technologies & Relationships</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body"></tbody>
+            </table>
+        </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const apiURL = 'http://127.0.0.1:5000/api/documents';
+        document.getElementById('search-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const topic = document.getElementById('search-input').value;
+            if (topic) fetchAndDisplayDocuments(topic);
+        });
+
+        function getTRLColor(trl) {
+            if (trl >= 7) return '#198754'; // Green for high TRL
+            if (trl >= 4) return '#ffc107'; // Yellow for medium TRL
+            return '#dc3545'; // Red for low TRL
+        }
+
+        function fetchAndDisplayDocuments(topic) {
+            const apiURL = `http://127.0.0.1:5000/api/documents/${encodeURIComponent(topic)}`;
             const tableBody = document.getElementById('table-body');
             const loadingMessage = document.getElementById('loading-message');
             const table = document.getElementById('documents-table');
+
+            loadingMessage.style.display = 'block';
+            table.style.display = 'none';
+            tableBody.innerHTML = '';
 
             fetch(apiURL)
                 .then(response => response.json())
                 .then(data => {
                     loadingMessage.style.display = 'none';
                     table.style.display = 'table';
-                    
-                    if (data.length === 0) {
-                        tableBody.innerHTML = '<tr><td colspan="2" style="text-align:center;">No documents found. Run main.py to process data.</td></tr>';
+                    if (!data || data.length === 0) {
+                        tableBody.innerHTML = `<tr><td colspan="2" style="text-align:center;">No documents found for "${topic}". Try running the pipeline for this topic first.</td></tr>`;
                         return;
                     }
 
@@ -57,11 +83,16 @@
                     data.forEach(doc => {
                         const technologiesHTML = doc.technologies ? doc.technologies.map(t => `<li>${t}</li>`).join('') : '<li>N/A</li>';
                         const relationshipsHTML = doc.key_relationships ? doc.key_relationships.map(r => `<li><strong>${r.subject}</strong> ${r.relationship} <strong>${r.object}</strong></li>`).join('') : '<li>N/A</li>';
+                        const trlColor = getTRLColor(doc.TRL);
 
                         rowsHTML += `
                             <tr>
                                 <td>
                                     <div class="doc-title"><a href="${doc.id}" target="_blank">${doc.title}</a></div>
+                                    <div>
+                                        <span class="trl-badge" style="background-color:${trlColor};">TRL ${doc.TRL || 'N/A'}</span>
+                                        <span class="trl-justification">${doc.TRL_justification || ''}</span>
+                                    </div>
                                     <p class="strategic-summary">${doc.strategic_summary || 'Not available.'}</p>
                                 </td>
                                 <td>
@@ -77,10 +108,9 @@
                     tableBody.innerHTML = rowsHTML;
                 })
                 .catch(error => {
-                    loadingMessage.textContent = 'Failed to load documents. Is the Python API server running?';
-                    console.error('Error fetching document data:', error);
+                    loadingMessage.textContent = `Failed to load documents. Is the Python API server running? Error: ${error}`;
                 });
-        });
+        }
     </script>
 </body>
 </html>

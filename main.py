@@ -8,44 +8,50 @@ from database import save_to_db
 from intelligence import get_gemini_analysis
 
 def analyze_document(row_tuple):
+    """Helper function to process a single document row for concurrency."""
     index, row = row_tuple
     insights = get_gemini_analysis(row['summary'])
     return {**row.to_dict(), **insights}
 
-def run_pipeline(topic: str, max_results_per_source: int = 15):
-    print(f"--- Starting AETOS Pipeline for topic: '{topic}' ---")
+def run_pipeline(topic: str, num_documents: int = 100):
+    print(f"--- Starting AETOS Batch Intelligence Run for topic: '{topic}' ---")
     
-    # 1. Fetch and Combine Data
-    arxiv_df = fetch_arxiv_data(topic, max_results_per_source)
-    patents_df = fetch_patent_data(topic, max_results_per_source)
+    # We fetch a larger number of documents for a comprehensive database build
+    max_per_source = num_documents // 2
+    
+    # 1. Fetch Data
+    print(f"Fetching {max_per_source} documents each from arXiv and Patents...")
+    arxiv_df = fetch_arxiv_data(topic, max_results=max_per_source)
+    patents_df = fetch_patent_data(topic, max_results=max_per_source)
     combined_df = pd.concat([arxiv_df, patents_df], ignore_index=True)
     
-    # 2. NEW: Pre-filter for high-quality documents before analysis
-    MIN_SUMMARY_LENGTH = 150 # Require at least 150 characters for a summary to be useful
+    # 2. Pre-filter for high-quality documents
+    MIN_SUMMARY_LENGTH = 150
     original_count = len(combined_df)
     combined_df = combined_df[combined_df['summary'].str.len() >= MIN_SUMMARY_LENGTH]
-    print(f"Filtered {original_count} documents down to {len(combined_df)} high-quality candidates for analysis.")
+    print(f"Filtered {original_count} docs down to {len(combined_df)} high-quality candidates for analysis.")
 
     if combined_df.empty:
-        print("No documents with sufficient summary length found. Exiting pipeline.")
+        print("No high-quality documents found. Exiting.")
         return
         
-    # 3. Process documents concurrently with smarter rate limiting
+    # 3. Process documents concurrently
     all_insights = []
-    # Reduced max_workers to a safer number for the free tier
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor: # Kept low for free-tier
         results_iterator = executor.map(analyze_document, combined_df.iterrows())
-        all_insights = list(tqdm(results_iterator, total=len(combined_df), desc="Analyzing High-Quality Documents"))
+        all_insights = list(tqdm(results_iterator, total=len(combined_df), desc="Analyzing Documents"))
 
     # 4. Save the enriched data
     if all_insights:
         processed_df = pd.DataFrame(all_insights)
-        processed_df = processed_df[processed_df['strategic_summary'] != 'Analysis failed']
+        processed_df = processed_df[processed_df['TRL'] != 0] # Filter out failed analyses
         if not processed_df.empty:
+            print(f"Saving {len(processed_df)} successfully analyzed documents to the database.")
             save_to_db(processed_df)
     
-    print("--- AETOS Pipeline finished successfully ---")
+    print("--- AETOS Batch Run Finished ---")
 
 if __name__ == "__main__":
-    topic_of_interest = "hypersonic missile defense"
-    run_pipeline(topic=topic_of_interest)
+    # This script is now used to build our historical database, topic by topic.
+    topic_of_interest = "quantum cryptography"
+    run_pipeline(topic=topic_of_interest, num_documents=20)
