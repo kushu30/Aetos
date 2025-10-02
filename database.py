@@ -1,61 +1,50 @@
-# database.py
 import os
-import pandas as pd
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
 from dotenv import load_dotenv
+import pandas as pd
+from datetime import datetime
 
-def save_to_db(df: pd.DataFrame, db_name: str = "aetos_db", collection_name: str = "documents"):
-    load_dotenv()
-    mongo_uri = os.getenv("MONGO_URI")
+load_dotenv()
 
-    if not mongo_uri:
-        raise ValueError("MONGO_URI not found in environment variables.")
-
-    print("Connecting to MongoDB...")
+def get_db_connection():
+    mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
     client = MongoClient(mongo_uri)
-    db = client[db_name]
-    collection = db[collection_name]
+    db = client.aetos_db
     
-    records = df.to_dict('records')
+    db.documents.create_index([("title", ASCENDING)])
+    db.documents.create_index([("technologies", ASCENDING)])
+    db.documents.create_index([("published", ASCENDING)])
+    db.documents.create_index([("source", ASCENDING)])
     
-    print(f"Upserting {len(records)} documents into '{db_name}.{collection_name}'...")
-    
-    upsert_count = 0
-    for record in records:
-        result = collection.update_one(
-            {'id': record['id']}, 
-            {'$set': record}, 
-            upsert=True
-        )
-        if result.upserted_id:
-            upsert_count += 1
-            
-    print(f"Database operation complete. Inserted {upsert_count} new documents.")
-    client.close()
+    return db
 
-def save_analytics_to_db(data: dict, db_name: str = "aetos_db", collection_name: str = "analytics"):
-    """Saves analysis data, like S-curves, to a dedicated collection."""
-    load_dotenv()
-    mongo_uri = os.getenv("MONGO_URI")
-
-    if not mongo_uri:
-        raise ValueError("MONGO_URI not found in environment variables.")
-
-    client = MongoClient(mongo_uri)
-    db = client[db_name]
-    collection = db[collection_name]
+def save_to_db(df: pd.DataFrame) -> int:
+    if df.empty:
+        print("No data to save")
+        return 0
     
-    topic_id = data.get("topic")
-    if not topic_id:
-        print("Analytics data must contain a 'topic' field.")
-        return
-
-    print(f"Upserting analytics for topic '{topic_id}'...")
-    collection.update_one(
-        {'_id': topic_id},
-        {'$set': data},
-        upsert=True
-    )
-    
-    print("Analytics data saved successfully.")
-    client.close()
+    try:
+        db = get_db_connection()
+        records = df.to_dict('records')
+        
+        for record in records:
+            record['updated_at'] = datetime.utcnow()
+            if 'authors' in record and isinstance(record['authors'], list):
+                record['authors'] = [str(a) for a in record['authors']]
+        
+        inserted_count = 0
+        for record in records:
+            result = db.documents.update_one(
+                {'id': record['id']},
+                {'$set': record},
+                upsert=True
+            )
+            if result.upserted_id or result.modified_count > 0:
+                inserted_count += 1
+        
+        print(f"Successfully saved/updated {inserted_count} documents to database")
+        return inserted_count
+        
+    except Exception as e:
+        print(f"Error saving to database: {e}")
+        return 0
