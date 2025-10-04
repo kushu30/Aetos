@@ -9,13 +9,13 @@ def fetch_arxiv_data(topic: str, max_results: int = 10) -> pd.DataFrame:
     params = {
         "search_query": f"all:{topic}",
         "start": 0,
-        "max_results": 10,
+        "max_results": max_results,
         "sortBy": "submittedDate",
         "sortOrder": "descending"
     }
     
     try:
-        print(f"Fetching up to {10} arXiv papers for '{topic}'...")
+        print(f"Fetching up to {max_results} arXiv papers for '{topic}'...")
         response = requests.get(base_url, params=params, timeout=30)
         response.raise_for_status()
         

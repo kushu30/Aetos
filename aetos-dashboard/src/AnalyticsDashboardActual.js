@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Line } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
@@ -17,49 +18,12 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
   Filler
 );
-
-// --- MOCK DATA FOR S-CURVE ---
-const mockSCurveData = {
-  labels: ['2018', '2019', '2020', '2021', '2022', '2023', '2024'],
-  datasets: [{
-    label: 'Cumulative Publications (S-Curve)',
-    data: [5, 12, 25, 45, 70, 90, 105],
-    borderColor: '#4a9eff',
-    backgroundColor: 'rgba(74, 158, 255, 0.2)',
-    fill: true,
-    tension: 0.4
-  }]
-};
-
-// --- MOCK DATA FOR TRL PROGRESSION & FORECAST ---
-const mockTrlProgressionData = {
-  labels: ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027'],
-  datasets: [
-    {
-      label: 'Historical Avg. TRL',
-      data: [2.5, 3.1, 3.5, 4.2, 4.8, null, null, null], // Historical data ends at the last known point
-      borderColor: '#198754',
-      backgroundColor: 'rgba(25, 135, 84, 0.2)',
-      fill: false,
-      tension: 0.1
-    },
-    {
-      label: 'Forecasted Avg. TRL',
-      data: [null, null, null, null, 4.8, 5.3, 5.8, 6.2], // Forecast data starts where history ends
-      borderColor: '#ffc107',
-      backgroundColor: 'rgba(255, 193, 7, 0.2)',
-      borderDash: [5, 5], // Dashed line for forecast
-      fill: false,
-      tension: 0.1
-    }
-  ]
-};
-
 
 const chartOptions = {
   responsive: true,
@@ -86,7 +50,9 @@ const chartOptions = {
 
 const AnalyticsDashboard = ({ topic }) => {
   const [synthesis, setSynthesis] = useState(null);
+  const [sCurveData, setSCurveData] = useState(null);
   const [convergenceData, setConvergenceData] = useState(null);
+  const [trlData, setTrlData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -95,15 +61,43 @@ const AnalyticsDashboard = ({ topic }) => {
     const fetchAnalytics = async () => {
       setLoading(true);
       try {
-        // Fetch only synthesis and convergence data
-        const [synthesisRes, convergenceRes] = await Promise.all([
+        const [synthesisRes, sCurveRes, convergenceRes, trlRes] = await Promise.all([
           fetch(`http://127.0.0.1:5000/api/analytics/synthesis/${encodeURIComponent(topic)}`),
+          fetch(`http://127.0.0.1:5000/api/analytics/scurve/${encodeURIComponent(topic)}`),
           fetch(`http://127.0.0.1:5000/api/analytics/convergence/${encodeURIComponent(topic)}`),
+          fetch(`http://127.0.0.1:5000/api/analytics/trl_progression/${encodeURIComponent(topic)}`),
         ]);
 
         if (synthesisRes.ok) setSynthesis(await synthesisRes.json());
+        if (sCurveRes.ok) {
+            const data = await sCurveRes.json();
+            setSCurveData({
+                labels: data.map(d => d.year),
+                datasets: [{
+                    label: 'Cumulative Publications (S-Curve)',
+                    data: data.map(d => d.cumulative_count),
+                    borderColor: '#4a9eff',
+                    backgroundColor: 'rgba(74, 158, 255, 0.2)',
+                    fill: true,
+                }]
+            });
+        }
         if (convergenceRes.ok) setConvergenceData(await convergenceRes.json());
-
+        if (trlRes.ok) {
+            const data = await trlRes.json();
+            const allData = [...data.history, ...data.forecast];
+            setTrlData({
+                labels: allData.map(d => d.year),
+                datasets: [{
+                    label: 'Average TRL (History + Forecast)',
+                    data: allData.map(d => d.avg_trl),
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25, 135, 84, 0.2)',
+                    // Dashed line for forecast part
+                    borderDash: [5, 5],
+                }]
+            });
+        }
       } catch (error) {
         console.error("Failed to fetch analytics data:", error);
       } finally {
@@ -115,7 +109,7 @@ const AnalyticsDashboard = ({ topic }) => {
   }, [topic]);
   
   if (!topic || loading) {
-    return null;
+    return null; // Don't show anything if no topic or still loading
   }
 
   return (
@@ -147,13 +141,13 @@ const AnalyticsDashboard = ({ topic }) => {
         <div className="card chart-card">
           <h3>S-Curve (Adoption Rate)</h3>
           <div className="chart-wrapper">
-            <Line options={chartOptions} data={mockSCurveData} />
+            {sCurveData ? <Line options={chartOptions} data={sCurveData} /> : <p>Loading chart...</p>}
           </div>
         </div>
         <div className="card chart-card">
           <h3>TRL Progression & Forecast</h3>
           <div className="chart-wrapper">
-            <Line options={chartOptions} data={mockTrlProgressionData} />
+            {trlData ? <Line options={chartOptions} data={trlData} /> : <p>Loading chart...</p>}
           </div>
         </div>
       </div>
