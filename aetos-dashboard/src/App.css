@@ -253,3 +253,62 @@ hr {
     padding: 12px;
   }
 }
+
+.analytics-container {
+  margin-top: 40px;
+  padding: 20px;
+  background: #1a2332;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.analytics-container h2 {
+  color: #4a9eff;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.card {
+  background: #0f1621;
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 3px solid #4a9eff;
+}
+
+.card h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #a0d8ff;
+}
+
+.card h5 {
+  margin-top: 15px;
+  margin-bottom: 5px;
+  color: #a0d8ff;
+}
+
+.card p, .card li {
+  font-size: 14px;
+  color: #d0d0d0;
+  line-height: 1.6;
+}
+
+.card ul {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.chart-card {
+  grid-column: span 1 / -1; /* Make charts take full width */
+}
+
+.chart-wrapper {
+  position: relative;
+  height: 300px;
+}

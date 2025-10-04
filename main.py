@@ -31,7 +31,7 @@ def analyze_document(row_tuple):
 def run_pipeline(topic: str, num_documents: int = 20):  # Increased default
     print(f"--- Starting AETOS Batch Intelligence Run for topic: '{topic}' ---")
 
-    max_per_source = max(1, num_documents // 2)
+    max_per_source = max(1, num_documents//2)
 
     print(f"Fetching up to {max_per_source} documents each from arXiv and Patents...")
     arxiv_df = fetch_arxiv_data(topic, max_results=max_per_source)
@@ -74,4 +74,4 @@ def run_pipeline(topic: str, num_documents: int = 20):  # Increased default
 
 if __name__ == "__main__":
     topic_of_interest = "quantum cryptography"
-    run_pipeline(topic=topic_of_interest, num_documents=5)
+    run_pipeline(topic=topic_of_interest, num_documents=10)

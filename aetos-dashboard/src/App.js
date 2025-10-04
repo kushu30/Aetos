@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
+import AnalyticsDashboard from './AnalyticsDashboard';
 
 function App() {
   const [topic, setTopic] = useState('');
+  const [numDocuments, setNumDocuments] = useState(20);
   const [documents, setDocuments] = useState([]);
   const [status, setStatus] = useState('Enter a topic to begin analysis.');
   const [isLoading, setIsLoading] = useState(false);
+  const [analyzedTopic, setAnalyzedTopic] = useState('');
 
   const fetchDocuments = useCallback(async (currentTopic) => {
     if (!currentTopic) return;
@@ -27,17 +30,21 @@ function App() {
   const startAnalysis = async (currentTopic) => {
     setIsLoading(true);
     setDocuments([]);
+    setAnalyzedTopic(''); // Clear previous analytics topic
     setStatus(`Submitting new analysis job for "${currentTopic}"...`);
     try {
       const resp = await fetch(`http://127.0.0.1:5000/api/analyze/${encodeURIComponent(currentTopic)}`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ num_documents: numDocuments }),
       });
       
       const payload = await resp.json();
       setStatus(`Server response: ${payload?.status || resp.statusText}`);
 
       if (resp.ok) {
-        fetchDocuments(currentTopic);
+        await fetchDocuments(currentTopic);
+        setAnalyzedTopic(currentTopic); // --- ADDED: Set topic to show analytics
       }
 
     } catch (error) {
@@ -46,6 +53,8 @@ function App() {
       setIsLoading(false);
     }
   };
+
+  
 
   useEffect(() => {
   }, []);
@@ -116,6 +125,7 @@ function App() {
           ) : ( <tr><td colSpan="3" style={{ textAlign: 'center' }}>No documents to display.</td></tr> )}
         </tbody>
       </table>
+      {documents.length > 0 && analyzedTopic && <AnalyticsDashboard topic={analyzedTopic} />}
     </div>
   );
 }
