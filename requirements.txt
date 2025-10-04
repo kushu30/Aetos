@@ -10,3 +10,4 @@ tqdm
 celery[redis]
 google-generativeai
 redis
+selenium

@@ -4,6 +4,7 @@ from flask_cors import CORS
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from bson import json_util
+import json  # Import the standard json library
 from worker import run_analysis_pipeline_task
 
 load_dotenv()
@@ -27,13 +28,16 @@ def create_app():
         }
         documents = list(db.documents.find(query).sort("published", -1).limit(50))
         print(f"API: Found {len(documents)} matching documents.")
-        return json_util.dumps(documents)
+        
+        # --- FIX ---
+        # Convert BSON to a Python list of dicts, then return as a proper JSON response
+        return jsonify(json.loads(json_util.dumps(documents)))
 
     @app.route("/api/analyze/<topic>", methods=['POST'])
     def analyze_topic(topic):
         print(f"API: Received analysis request for '{topic}'. Running synchronously.")
         try:
-            result = run_analysis_pipeline_task(topic, num_documents=5)  # Test with 5
+            result = run_analysis_pipeline_task(topic, num_documents=5)
             return jsonify({"status": "Analysis complete", "result": result}), 200
         except Exception as e:
             print(f"API: Error during analysis: {e}")

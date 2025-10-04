@@ -13,29 +13,35 @@ function App() {
       const response = await fetch(`http://127.0.0.1:5000/api/documents/${encodeURIComponent(currentTopic)}`);
       const data = await response.json();
       setDocuments(data || []);
-      if (data && data.length > 0 && status.includes("running")) {
-         setStatus(`Analysis for "${currentTopic}" running in background. Displaying ${data.length} results found so far.`);
+      if (data && data.length > 0) {
+        setStatus(`Displaying ${data.length} results for "${currentTopic}".`);
+      } else {
+        setStatus(`No results found for "${currentTopic}".`);
       }
     } catch (error) {
       console.error("Error fetching documents:", error);
       setStatus("Error fetching documents. Is the API server running?");
     }
-  }, [status]);
+  }, []); // Removed status from dependencies to avoid loops
 
   const startAnalysis = async (currentTopic) => {
     setIsLoading(true);
+    setDocuments([]); // Clear old documents
     setStatus(`Submitting new analysis job for "${currentTopic}"...`);
     try {
       const resp = await fetch(`http://127.0.0.1:5000/api/analyze/${encodeURIComponent(currentTopic)}`, {
         method: 'POST',
       });
-      if (resp.status === 202) {
-        setStatus(`Analysis for "${currentTopic}" is running in the background. Results will appear automatically.`);
+      
+      const payload = await resp.json();
+      setStatus(`Server response: ${payload?.status || resp.statusText}`);
+
+      // --- FIX ---
+      // If the response is OK (e.g., status 200), fetch the documents immediately.
+      if (resp.ok) {
         fetchDocuments(currentTopic);
-      } else {
-        const payload = await resp.json();
-        setStatus(`Server response: ${payload?.status || resp.statusText}`);
       }
+
     } catch (error) {
       setStatus("Error: Could not start analysis. Is the API server running?");
     } finally {
@@ -43,26 +49,18 @@ function App() {
     }
   };
 
+  // This useEffect is now only for the initial page load or if you re-implement polling later.
   useEffect(() => {
-    let interval = null;
-    if (status.includes("running in the background")) {
-      interval = setInterval(() => {
-        fetchDocuments(topic);
-      }, 10000); // Polls every 10 seconds
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [status, topic, fetchDocuments]);
+    // You could add logic here to fetch initial documents if needed.
+  }, []);
 
   const handleSubmit = (event) => {
     event.preventDefault();
     if (topic && !isLoading) {
-      setDocuments([]);
       startAnalysis(topic);
     }
   };
-
+  
   const getTRLColor = (trl) => {
     if (!trl && trl !== 0) return '#6c757d';
     if (trl >= 7) return '#198754';
@@ -76,7 +74,7 @@ function App() {
       <div className="search-container">
         <form onSubmit={handleSubmit}>
           <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a technology topic..." disabled={isLoading} />
-          <button type="submit" disabled={isLoading}>{isLoading ? 'Submitting...' : 'Analyze Topic'}</button>
+          <button type="submit" disabled={isLoading}>{isLoading ? 'Analyzing...' : 'Analyze Topic'}</button>
         </form>
       </div>
       <div className="status-bar">{status}</div>
@@ -90,7 +88,7 @@ function App() {
         <tbody>
           {documents && documents.length > 0 ? (
             documents.map((doc) => (
-              <tr key={doc.id || Math.random()}>
+              <tr key={doc.id?.$oid || doc._id?.$oid || Math.random()}>
                 <td>
                   <div className="doc-title"><a href={doc.id} target="_blank" rel="noopener noreferrer">{doc.title}</a></div>
                   <div>
