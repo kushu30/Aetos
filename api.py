@@ -54,43 +54,56 @@ def create_app():
     # --- NEW ANALYTICS ENDPOINTS ---
 
     @app.route("/api/analytics/synthesis/<topic>", methods=['GET'])
-    def get_synthesis(topic):
+    def get_synthesis_and_charts(topic):
         documents = get_docs_for_topic(topic)
         if not documents:
             return jsonify({"error": "No documents found for synthesis."}), 404
         
+        # We need summaries for the prompt, but the function will return all analytics data
         summaries = [doc['summary'] for doc in documents if 'summary' in doc]
-        synthesis = get_gemini_topic_synthesis(summaries[:20]) # Limit to 20 summaries to manage context window
-        return jsonify(synthesis)
-
-    @app.route("/api/analytics/scurve/<topic>", methods=['GET'])
-    def get_scurve(topic):
-        documents = get_docs_for_topic(topic)
-        if not documents:
-            return jsonify([]), 404
-        df = pd.DataFrame(json.loads(json_util.dumps(documents)))
-        s_curve_data = calculate_s_curve(df)
-        return jsonify(s_curve_data)
-
-    @app.route("/api/analytics/convergence/<topic>", methods=['GET'])
-    def get_convergence(topic):
-        documents = get_docs_for_topic(topic)
-        if not documents:
-            return jsonify([]), 404
+        
+        # Pass the topic to the synthesis function
+        synthesis_data = get_gemini_topic_synthesis(summaries[:20], topic)
+        
+        # For convergence, we still use the real data
         df = pd.DataFrame(json.loads(json_util.dumps(documents)))
         convergence_data = find_technology_convergence(df)
-        return jsonify(convergence_data)
-
-    @app.route("/api/analytics/trl_progression/<topic>", methods=['GET'])
-    def get_trl_progression(topic):
-        documents = get_docs_for_topic(topic)
-        if not documents:
-            return jsonify({"history": [], "forecast": []}), 404
-        df = pd.DataFrame(json.loads(json_util.dumps(documents)))
-        trl_data = calculate_trl_progression(df)
-        return jsonify(trl_data)
+        
+        # Combine the results
+        synthesis_data['convergence'] = convergence_data
+        
+        return jsonify(synthesis_data)
 
     return app
+
+    # @app.route("/api/analytics/scurve/<topic>", methods=['GET'])
+    # def get_scurve(topic):
+    #     documents = get_docs_for_topic(topic)
+    #     if not documents:
+    #         return jsonify([]), 404
+    #     df = pd.DataFrame(json.loads(json_util.dumps(documents)))
+    #     s_curve_data = calculate_s_curve(df)
+    #     return jsonify(s_curve_data)
+
+    # @app.route("/api/analytics/convergence/<topic>", methods=['GET'])
+    # def get_convergence(topic):
+    #     documents = get_docs_for_topic(topic)
+    #     if not documents:
+    #         return jsonify([]), 404
+    #     df = pd.DataFrame(json.loads(json_util.dumps(documents)))
+    #     convergence_data = find_technology_convergence(df)
+    #     return jsonify(convergence_data)
+
+    # @app.route("/api/analytics/trl_progression/<topic>", methods=['GET'])
+    # def get_trl_progression(topic):
+    #     documents = get_docs_for_topic(topic)
+    #     if not documents:
+    #         return jsonify({"history": [], "forecast": []}), 404
+    #     df = pd.DataFrame(json.loads(json_util.dumps(documents)))
+    #     trl_data = calculate_trl_progression(df)
+    #     return jsonify(trl_data)
+
+    # return app
 
 if __name__ == "__main__":
     app = create_app()
