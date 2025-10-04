@@ -9,6 +9,7 @@ generation_config = genai.types.GenerationConfig(
     response_mime_type="application/json",
 )
 
+# ... (keep existing get_gemini_analysis function) ...
 def get_gemini_analysis(text: str, max_retries: int = 3) -> dict:
     if not text or len(text.split()) < 25:
         return {"TRL": 0, "strategic_summary": "Not analyzed: Abstract too short."}
@@ -31,7 +32,7 @@ def get_gemini_analysis(text: str, max_retries: int = 3) -> dict:
       "key_relationships": [
         {{"subject": "Technology A", "relationship": "is used to improve", "object": "Technology B"}}
       ],
-      "country": "The country of origin of the research.",
+      "country": "The country of origin of the research, if mentioned.",
       "provider_company": "The company or institution providing the technology, if mentioned.",
       "funding_details": "Any details about funding for this research, if mentioned."
     }}
@@ -57,44 +58,50 @@ def get_gemini_analysis(text: str, max_retries: int = 3) -> dict:
             
     return {"TRL": 0, "strategic_summary": "Analysis failed after all retries."}
 
-
-def get_gemini_briefing_for_topic(abstracts: list) -> dict:
-    if not abstracts: 
-        return {"error": "No content provided for analysis."}
+# --- NEW FUNCTION ---
+def get_gemini_topic_synthesis(summaries: list) -> dict:
+    """Synthesizes multiple summaries to identify high-level signals."""
+    if not summaries: 
+        return {"error": "No content provided for synthesis."}
     
     api_key = os.getenv("GEMINI_API_KEY")
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-2.0-flash-lite', generation_config=generation_config)
-    combined_text = "\n\n---\n\n".join(abstracts)
+    
+    combined_text = "\n\n---\n\n".join(summaries)
     
     prompt = f"""
-    You are a senior technology intelligence analyst for a national defense organization (DRDO). Synthesize the following collection of abstracts into a single, high-impact executive briefing in a strict JSON format.
+    You are a senior technology intelligence analyst. Based on the following collection of document abstracts, synthesize the key insights into a single JSON object.
 
     Abstracts:
     ---
     {combined_text}
     ---
     
-    If you cannot perform the analysis, you MUST return a JSON object with a single "error" key. Otherwise, your report must contain:
-    `strategic_summary`, `aggregate_TRL`, `TRL_justification`, `key_technologies`, `emerging_convergences`.
+    Your report must contain:
+    - `overall_summary`: A high-level summary of the technology area.
+    - `emerging_signals`: A list of 2-3 early but potentially significant trends or novel concepts.
+    - `key_players`: A list of the most frequently mentioned companies, countries, or institutions.
 
-    JSON Output Format:
+    Your entire output must be a single, valid JSON object.
     {{
-      "strategic_summary": "...",
-      "aggregate_TRL": <integer>,
-      "TRL_justification": "...",
-      "key_technologies": ["..."],
-      "emerging_convergences": [
-        {{"subject": "Technology A", "relationship": "is converging with", "object": "Technology B"}}
-      ]
+      "overall_summary": "...",
+      "emerging_signals": ["Signal 1...", "Signal 2..."],
+      "key_players": ["Player 1", "Player 2"]
     }}
     """
     
     try:
         response = model.generate_content(prompt)
         if not response.text:
-            raise ValueError("Received empty response text from Gemini for briefing.")
-        return json.loads(response.text)
+            raise ValueError("Received empty response text from Gemini for synthesis.")
+        
+        match = re.search(r'\{.*\}', response.text, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        else:
+            raise ValueError("No JSON object found in Gemini response for synthesis.")
+            
     except Exception as e:
-        print(f"An error occurred during Gemini briefing generation: {e}")
-        return {"error": f"Failed to generate intelligence briefing. Reason: {str(e)}"}
+        print(f"An error occurred during Gemini synthesis: {e}")
+        return {"error": f"Failed to generate synthesis. Reason: {str(e)}"}
