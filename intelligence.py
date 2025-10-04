@@ -18,7 +18,7 @@ def get_gemini_analysis(text: str, max_retries: int = 3) -> dict:
     model = genai.GenerativeModel('gemini-2.0-flash-lite', generation_config=generation_config)
     
     prompt = f"""
-    As a senior defense technology analyst, analyze the following abstract. Provide a structured intelligence report in JSON format with TRL estimation, a strategic summary, key technologies, and their relationships.
+    As a senior defense technology analyst, analyze the following abstract. Provide a structured intelligence report in JSON format.
 
     Abstract: "{text}"
 
@@ -30,7 +30,10 @@ def get_gemini_analysis(text: str, max_retries: int = 3) -> dict:
       "technologies": ["List", "of", "key", "technologies"],
       "key_relationships": [
         {{"subject": "Technology A", "relationship": "is used to improve", "object": "Technology B"}}
-      ]
+      ],
+      "country": "The country of origin of the research, if mentioned.",
+      "provider_company": "The company or institution providing the technology, if mentioned.",
+      "funding_details": "Any details about funding for this research, if mentioned."
     }}
     """
 
@@ -38,11 +41,9 @@ def get_gemini_analysis(text: str, max_retries: int = 3) -> dict:
         try:
             response = model.generate_content(prompt)
             
-            # Defensive check: ensure response text is not empty
             if not response.text:
                 raise ValueError("Received empty response text from Gemini.")
 
-            # Defensive parsing: use regex to find the JSON object
             match = re.search(r'\{.*\}', response.text, re.DOTALL)
             if match:
                 return json.loads(match.group(0))

@@ -95,6 +95,29 @@ h1 {
   color: #a0d8ff;
 }
 
+.relations-list strong {
+  color: #4a9eff;
+}
+
+.source-details {
+  font-size: 14px;
+  color: #c0c0c0;
+}
+
+.source-details p {
+  margin: 8px 0;
+}
+
+.source-details strong {
+  color: #a0d8ff;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #2a3f5f;
+  margin: 15px 0;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

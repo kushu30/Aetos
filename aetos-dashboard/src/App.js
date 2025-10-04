@@ -36,8 +36,6 @@ function App() {
       const payload = await resp.json();
       setStatus(`Server response: ${payload?.status || resp.statusText}`);
 
-      // --- FIX ---
-      // If the response is OK (e.g., status 200), fetch the documents immediately.
       if (resp.ok) {
         fetchDocuments(currentTopic);
       }
@@ -49,9 +47,7 @@ function App() {
     }
   };
 
-  // This useEffect is now only for the initial page load or if you re-implement polling later.
   useEffect(() => {
-    // You could add logic here to fetch initial documents if needed.
   }, []);
 
   const handleSubmit = (event) => {
@@ -83,6 +79,7 @@ function App() {
           <tr>
             <th style={{width: "50%"}}>Strategic Analysis</th>
             <th>Key Technologies & Relationships</th>
+            <th>Source & Funding</th> 
           </tr>
         </thead>
         <tbody>
@@ -104,9 +101,17 @@ function App() {
                   <strong>Key Relationships:</strong>
                   <ul className="relations-list">{(doc.key_relationships || []).map((r, i) => <li key={i}><strong>{r.subject}</strong> {r.relationship} <strong>{r.object}</strong></li>)}</ul>
                 </td>
+                <td>
+                  <div className="source-details">
+                    <p><strong>Country:</strong> {doc.country || 'N/A'}</p>
+                    <p><strong>Provider/Company:</strong> {doc.provider_company || 'N/A'}</p>
+                    <p><strong>Date:</strong> {doc.published ? new Date(doc.published).toLocaleDateString() : 'N/A'}</p>
+                    <p><strong>Funding:</strong> {doc.funding_details || 'N/A'}</p>
+                  </div>
+                </td>
               </tr>
             ))
-          ) : ( <tr><td colSpan="2" style={{ textAlign: 'center' }}>No documents to display.</td></tr> )}
+          ) : ( <tr><td colSpan="3" style={{ textAlign: 'center' }}>No documents to display.</td></tr> )}
         </tbody>
       </table>
     </div>
