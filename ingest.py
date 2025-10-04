@@ -30,7 +30,8 @@ def fetch_arxiv_data(topic: str, max_results: int = 10) -> pd.DataFrame:
                 'summary': entry.find('atom:summary', ns).text.strip(),
                 'published': entry.find('atom:published', ns).text[:10],
                 'authors': [a.find('atom:name', ns).text for a in entry.findall('atom:author', ns)],
-                'source': 'arxiv'
+                'source': 'arxiv',
+                'provider_company': 'N/A'  # --- ADDED for data consistency
             }
             if all(paper_data.values()): # Basic check for missing fields
                 all_papers.append(paper_data)

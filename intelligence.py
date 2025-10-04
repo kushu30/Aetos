@@ -31,7 +31,7 @@ def get_gemini_analysis(text: str, max_retries: int = 3) -> dict:
       "key_relationships": [
         {{"subject": "Technology A", "relationship": "is used to improve", "object": "Technology B"}}
       ],
-      "country": "The country of origin of the research, if mentioned.",
+      "country": "The country of origin of the research.",
       "provider_company": "The company or institution providing the technology, if mentioned.",
       "funding_details": "Any details about funding for this research, if mentioned."
     }}
