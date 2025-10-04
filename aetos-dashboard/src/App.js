@@ -22,11 +22,11 @@ function App() {
       console.error("Error fetching documents:", error);
       setStatus("Error fetching documents. Is the API server running?");
     }
-  }, []); // Removed status from dependencies to avoid loops
+  }, []);
 
   const startAnalysis = async (currentTopic) => {
     setIsLoading(true);
-    setDocuments([]); // Clear old documents
+    setDocuments([]);
     setStatus(`Submitting new analysis job for "${currentTopic}"...`);
     try {
       const resp = await fetch(`http://127.0.0.1:5000/api/analyze/${encodeURIComponent(currentTopic)}`, {
@@ -105,7 +105,9 @@ function App() {
                   <div className="source-details">
                     <p><strong>Country:</strong> {doc.country || 'N/A'}</p>
                     <p><strong>Provider/Company:</strong> {doc.provider_company || 'N/A'}</p>
-                    <p><strong>Date:</strong> {doc.published ? new Date(doc.published).toLocaleDateString() : 'N/A'}</p>
+                    <p><strong>Authors:</strong> {doc.authors && doc.authors.length > 0 ? doc.authors.join(', ') : 'N/A'}</p>
+                    {/* --- FIX --- */}
+                    <p><strong>Date:</strong> {doc.published?.$date ? new Date(doc.published.$date).toLocaleDateString() : (doc.published || 'N/A')}</p>
                     <p><strong>Funding:</strong> {doc.funding_details || 'N/A'}</p>
                   </div>
                 </td>

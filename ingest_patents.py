@@ -62,14 +62,20 @@ def fetch_patent_data(topic: str, max_results: int = 10, retries: int = 3) -> pd
                 match = re.search(r'Publication date:\s*([\d-]+)', date_text)
                 published = match.group(1) if match else 'N/A'
 
-                # Authors/Inventors: From metadata h4 (from SO)
+                # Authors/Inventors & Assignee
                 authors = []
+                provider_company = 'N/A'
                 metadata_tag = item.select_one('h4.metadata')
                 if metadata_tag:
                     metadata_text = metadata_tag.get_text(strip=True)
                     inventor_match = re.search(r'Inventor[:\s]*(.+?)(?=,\s*Assignee|$)', metadata_text, re.IGNORECASE)
                     if inventor_match:
                         authors = [a.strip() for a in inventor_match.group(1).split(',')]
+                    
+                    assignee_match = re.search(r'Assignee[:\s]*(.+?)(?=,\s*Inventor|$)', metadata_text, re.IGNORECASE)
+                    if assignee_match:
+                        provider_company = assignee_match.group(1).strip()
+
 
                 patents.append({
                     'id': patent_url,
@@ -77,7 +83,8 @@ def fetch_patent_data(topic: str, max_results: int = 10, retries: int = 3) -> pd
                     'summary': summary,
                     'published': published,
                     'authors': authors,
-                    'source': 'google_patents'
+                    'source': 'google_patents',
+                    'provider_company': provider_company
                 })
 
             print(f"Successfully fetched {len(patents)} patents.")
